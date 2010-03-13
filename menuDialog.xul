@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<window
+    id="menusDialogWindow"
+	style="background-color: #E2E6E8; border:none; margin:0px; padding:0px"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	xmlns:html="http://www.w3.org/1999/xhtml">
+	
+  <iframe id="remoteHTML" flex="1" />
+
+    <script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/utils.js" />	
+	
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/prefmanager.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/convert2RegExp.js" />
+	
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/xmlhttprequester.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/miscapis.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/dochandler.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/scriptdownloader.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/browser.js" />	
+	
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/gm-provider/content/providerAPI.js" />
+    <script type="application/x-javascript" src="chrome://webShakes/content/webShakes.js" />
+    <script type="application/x-javascript" src="chrome://webShakes/content/json.js" />
+  
+</window>
+

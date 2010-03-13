@@ -17,7 +17,7 @@ function ScriptDownloader(win, uri, bundle) {
 // Export this one important value to the global namespace.
 window.GM_ScriptDownloader=ScriptDownloader;
 
-ScriptDownloader.prototype.startInstall = function() {
+ScriptDownloader.prototype.startPreviewScript = function() {
   this.installing_ = true;
   this.startDownload();
 };
@@ -28,25 +28,18 @@ ScriptDownloader.prototype.startViewScript = function(uri) {
 };
 
 ScriptDownloader.prototype.startDownload = function() {
-  this.win_.GM_BrowserUI.statusImage.src = "chrome://global/skin/throbber/Throbber-small.gif";
-  this.win_.GM_BrowserUI.statusImage.style.opacity = "0.5";
-  this.win_.GM_BrowserUI.statusImage.tooltipText = this.bundle_.getString("tooltip.loading");
-
-  this.win_.GM_BrowserUI.showStatus("Fetching user script", false);
-
-  Components.classes["@greasemonkey.mozdev.org/greasemonkey-service;1"]
-    .getService().wrappedJSObject
-    .ignoreNextScript();
+ try{
 
   this.req_ = new XMLHttpRequest();
   this.req_.open("GET", this.uri_.spec, true);
   this.req_.onload = GM_hitch(this, "handleScriptDownloadComplete");
   this.req_.send(null);
+ } catch (e) {alert(e);}
 };
 
 ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
-  this.win_.GM_BrowserUI.refreshStatus();
-  this.win_.GM_BrowserUI.hideStatusImmediately();
+//  this.win_.GM_BrowserUI.refreshStatus(); TODO shex, either add logging or delete
+//  this.win_.GM_BrowserUI.hideStatusImmediately();
 
   try {
     // If loading from file, status might be zero on success
@@ -86,17 +79,22 @@ ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
 
     this.script.setDownloadedFile(file);
 
-    window.setTimeout(GM_hitch(this, "fetchDependencies"), 0);
+    // TODO shex, use next lines if there's a problem, or delete them
+	// this.script._source = source;
+	//this.script.tempFile = file;
+
+    // TODO shex, revive!! you'll need them
+    //    window.setTimeout(GM_hitch(this, "fetchDependencies"), 0);
 
     if(this.installing_){
-      this.showInstallDialog();
-    }else{
-      this.showScriptView();
+		this.startScriptInstall();
+    }else{ 
+		this.startScriptPreview();
     }
   } catch (e) {
-    // NOTE: unlocalized string
-    alert("Script could not be installed " + e);
-    throw e;
+    	// NOTE: unlocalized string
+		alert("WebShakes (Provider=Greasemonkey) script could not be installed " + e +" lineNumber=" + e.lineNumber);
+    	throw e;
   }
 };
 
@@ -211,13 +209,38 @@ ScriptDownloader.prototype.errorInstallDependency = function(script, dep, msg){
 };
 
 ScriptDownloader.prototype.installScript = function(){
+  try {
+		this.win_.GM_BrowserUI.installScript(this.script);
+  } 
+  catch (e) {alert(e + " line=" + e.lineNumber)}
+
+  // TODO shex, revive and rewrite 
+  //if (this.dependencyError) {
+  //   alert(this.dependencyError);
+  // } else if(this.dependenciesLoaded_) {	
+  
+  //} else {
+  //  this.installOnCompletion_ = true;
+  //} 
+};
+
+ScriptDownloader.prototype.previewScript = function(){
   if (this.dependencyError) {
-    alert(this.dependencyError);
-  } else if(this.dependenciesLoaded_) {
-    this.win_.GM_BrowserUI.installScript(this.script)
-  } else {
-    this.installOnCompletion_ = true;
+  	alert(this.dependencyError);
   }
+  else { // if(this.dependenciesLoaded_) { TODO shex, revive!
+			try {
+				this.win_.GM_BrowserUI.previewScript(this.script);
+			} 
+			catch (e) {
+				alert(e + " line=" + e.lineNumber)
+			}
+		}
+  // TODO shex, revive!
+  //   this.win_.GM_BrowserUI.installScript(this.script)
+  // } else {
+  //   this.installOnCompletion_ = true;
+  // }
 };
 
 ScriptDownloader.prototype.cleanupTempFiles = function() {
@@ -226,19 +249,24 @@ ScriptDownloader.prototype.cleanupTempFiles = function() {
   }
 };
 
-ScriptDownloader.prototype.showInstallDialog = function(timer) {
+ScriptDownloader.prototype.startScriptInstall = function(timer) {
   if (!timer) {
     // otherwise, the status bar stays in the loading state.
-    this.win_.setTimeout(GM_hitch(this, "showInstallDialog", true), 0);
+    this.win_.setTimeout(GM_hitch(this, "startScriptInstall", true), 0);
     return;
   }
-  this.win_.openDialog("chrome://greasemonkey/content/install.xul", "",
-                       "chrome,centerscreen,modal,dialog,titlebar,resizable",
-                       this);
+  
+  this.installScript();
 };
 
-ScriptDownloader.prototype.showScriptView = function() {
-  this.win_.GM_BrowserUI.showScriptView(this);
+ScriptDownloader.prototype.startScriptPreview = function(timer) {
+
+  if (!timer) {
+    // otherwise, the status bar stays in the loading state.
+    this.win_.setTimeout(GM_hitch(this, "startScriptPreview", true), 0);
+    return;
+  }
+  this.previewScript();
 };
 
 function NotificationCallbacks() {}

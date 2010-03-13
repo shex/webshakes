@@ -1,4 +1,2 @@
-content    greasemonkey    content/
-overlay	   chrome://browser/content/browser.xul    chrome://greasemonkey/content/browser.xul
-overlay	   chrome://songbird/content/xul/mainScriptsOverlay.xul    chrome://greasemonkey/content/browser.xul
-locale  greasemonkey  en-US  locale/en-US/
+content     webShakes    chrome/content/
+overlay chrome://browser/content/browser.xul chrome://webShakes/content/browser.xul

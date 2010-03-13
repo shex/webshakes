@@ -155,9 +155,10 @@ var greasemonkeyService = {
     }
 
     // don't intercept anything when GM is not enabled
-    if (!GM_getEnabled()) {
-      return ret;
-    }
+	// TODO shex, fix and revive (need definition of function found in utils.js)
+    //if (!GM_getEnabled()) {
+    //  return ret;
+    //}
 
     // don't interrupt the view-source: scheme
     // (triggered if the link in the error console is clicked)
@@ -303,7 +304,10 @@ var greasemonkeyService = {
 
   registerMenuCommand: function(unsafeContentWin, commandName, commandFunc,
                                 accelKey, accelModifiers, accessKey) {
-    if (!GM_apiLeakCheck("GM_registerMenuCommand")) {
+    return; // hopefully support this in the future
+    
+	/*
+	if (!GM_apiLeakCheck("GM_registerMenuCommand")) {
       return;
     }
 
@@ -317,6 +321,7 @@ var greasemonkeyService = {
     for (var i = 0; i < this.browserWindows.length; i++) {
       this.browserWindows[i].registerMenuCommand(command);
     }
+	*/
   },
 
   openInTab: function(safeContentWin, chromeWin, url) {
@@ -482,7 +487,23 @@ var greasemonkeyService = {
     }
 
 	  return null;
-  }
+  },
+  
+  applyScript:function (scriptName, scriptNamespace, scriptCode, wrappedContentWin, chromeWin) {
+  		
+	var unsafeWin = wrappedContentWin.wrappedJSObject;
+    var unsafeLoc = new XPCNativeWrapper(unsafeWin, "location").location;
+    var href = new XPCNativeWrapper(unsafeLoc, "href").href;
+  	
+	var script  = new Script(GM_getConfig());
+	script.previewSrc = scriptCode;
+	script._namespace  = scriptNamespace;
+	script._name = scriptName;
+	var scripts = {0:script}; 
+	this.injectScripts(scripts, href, unsafeWin, chromeWin);		
+  },
+  
+  
 };
 
 greasemonkeyService.wrappedJSObject = greasemonkeyService;
