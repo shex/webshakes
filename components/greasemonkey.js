@@ -132,15 +132,17 @@ var greasemonkeyService = {
 
 
   startup: function() {
-    var loader = Cc["@mozilla.org/moz/jssubscript-loader;1"]
-      .getService(Ci.mozIJSSubScriptLoader);
-    loader.loadSubScript("chrome://global/content/XPCNativeWrapper.js");
-    loader.loadSubScript("chrome://greasemonkey/content/prefmanager.js");
-    loader.loadSubScript("chrome://greasemonkey/content/utils.js");
-    loader.loadSubScript("chrome://greasemonkey/content/config.js");
-    loader.loadSubScript("chrome://greasemonkey/content/convert2RegExp.js");
-    loader.loadSubScript("chrome://greasemonkey/content/miscapis.js");
-    loader.loadSubScript("chrome://greasemonkey/content/xmlhttprequester.js");
+  	try {
+		var loader = Cc["@mozilla.org/moz/jssubscript-loader;1"].getService(Ci.mozIJSSubScriptLoader);
+		loader.loadSubScript("chrome://global/content/XPCNativeWrapper.js");
+		loader.loadSubScript("chrome://webShakes/content/providers/greasemonkey/content/prefmanager.js");
+		loader.loadSubScript("chrome://webShakes/content/providers/greasemonkey/content/utils.js");
+		loader.loadSubScript("chrome://webShakes/content/providers/greasemonkey/content/config.js");
+		loader.loadSubScript("chrome://webShakes/content/providers/greasemonkey/content/convert2RegExp.js");
+		loader.loadSubScript("chrome://webShakes/content/providers/greasemonkey/content/miscapis.js");
+		loader.loadSubScript("chrome://webShakes/content/providers/greasemonkey/content/xmlhttprequester.js");
+	}
+	catch(e) {alert(e);}
     //loggify(this, "GM_GreasemonkeyService");
   },
 
@@ -268,9 +270,10 @@ var greasemonkeyService = {
       sandbox.GM_openInTab = GM_hitch(this, "openInTab", safeWin, chromeWin);
       sandbox.GM_xmlhttpRequest = GM_hitch(xmlhttpRequester,
                                            "contentStartRequest");
-      sandbox.GM_registerMenuCommand = GM_hitch(this,
-                                                "registerMenuCommand",
-                                                unsafeContentWin);
+      
+	  sandbox.GM_registerMenuCommand = GM_hitch(this,
+                                               "registerMenuCommand",
+                                               unsafeContentWin);
 
       sandbox.__proto__ = safeWin;
 
@@ -279,8 +282,8 @@ var greasemonkeyService = {
       var requires = [];
       var offsets = [];
       var offset = 0;
-
       script.requires.forEach(function(req){
+	  	alert("shex: found require");
         var contents = req.textContent;
         var lineCount = contents.split("\n").length;
         requires.push(contents);
@@ -296,6 +299,7 @@ var greasemonkeyService = {
                          "\n";
       if (!script.unwrap)
         scriptSrc = "(function(){"+ scriptSrc +"})()";
+				
       if (!this.evalInSandbox(scriptSrc, url, sandbox, script) && script.unwrap)
         this.evalInSandbox("(function(){"+ scriptSrc +"})()",
                            url, sandbox, script); // wrap anyway on early return
@@ -304,7 +308,7 @@ var greasemonkeyService = {
 
   registerMenuCommand: function(unsafeContentWin, commandName, commandFunc,
                                 accelKey, accelModifiers, accessKey) {
-    return; // hopefully support this in the future
+    return; // TODO shex, hopefully support this in the future
     
 	/*
 	if (!GM_apiLeakCheck("GM_registerMenuCommand")) {
@@ -490,17 +494,18 @@ var greasemonkeyService = {
   },
   
   applyScript:function (scriptName, scriptNamespace, scriptCode, wrappedContentWin, chromeWin) {
-  		
+	
 	var unsafeWin = wrappedContentWin.wrappedJSObject;
     var unsafeLoc = new XPCNativeWrapper(unsafeWin, "location").location;
     var href = new XPCNativeWrapper(unsafeLoc, "href").href;
   	
 	var script  = new Script(GM_getConfig());
-	script.previewSrc = scriptCode;
+	script.source_ = scriptCode;
 	script._namespace  = scriptNamespace;
 	script._name = scriptName;
-	var scripts = {0:script}; 
-	this.injectScripts(scripts, href, unsafeWin, chromeWin);		
+	script._source = scriptCode;
+	var scripts = {0:script};
+	this.injectScripts(scripts, href, unsafeWin, chromeWin);
   },
   
   

@@ -18,12 +18,12 @@ function ScriptDownloader(win, uri, bundle) {
 window.GM_ScriptDownloader=ScriptDownloader;
 
 ScriptDownloader.prototype.startPreviewScript = function() {
-  this.installing_ = true;
+  this.installing_ = false;
   this.startDownload();
 };
 
-ScriptDownloader.prototype.startViewScript = function(uri) {
-  this.installing_ = false;
+ScriptDownloader.prototype.startInstall = function(uri) {
+  this.installing_ = true;
   this.startDownload();
 };
 
@@ -31,7 +31,7 @@ ScriptDownloader.prototype.startDownload = function() {
  try{
 
   this.req_ = new XMLHttpRequest();
-  this.req_.open("GET", this.uri_.spec, true);
+  this.req_.open("GET", this.uri_.spec, true); 
   this.req_.onload = GM_hitch(this, "handleScriptDownloadComplete");
   this.req_.send(null);
  } catch (e) {alert(e);}
@@ -52,7 +52,6 @@ ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
     }
 
     var source = this.req_.responseText;
-
     this.script = GM_getConfig().parse(source, this.uri_);
 
     var file = Components.classes["@mozilla.org/file/directory_service;1"]
@@ -78,10 +77,9 @@ ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
     ws.close();
 
     this.script.setDownloadedFile(file);
-
-    // TODO shex, use next lines if there's a problem, or delete them
-	// this.script._source = source;
-	//this.script.tempFile = file;
+    
+	// we're saving the script source so we can later inject it (on hte fly)
+	this.script._source = source;
 
     // TODO shex, revive!! you'll need them
     //    window.setTimeout(GM_hitch(this, "fetchDependencies"), 0);
@@ -255,7 +253,6 @@ ScriptDownloader.prototype.startScriptInstall = function(timer) {
     this.win_.setTimeout(GM_hitch(this, "startScriptInstall", true), 0);
     return;
   }
-  
   this.installScript();
 };
 

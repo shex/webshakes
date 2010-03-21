@@ -97,7 +97,7 @@ Config.prototype = {
       script._name = node.getAttribute("name");
       script._namespace = node.getAttribute("namespace");
       script._description = node.getAttribute("description");
-      script._enabled = node.getAttribute("enabled") == true.toString(); // TODO shex, if there's a problem, use script._enabled = node.getAttribute("enabled") == "true";
+      script._enabled = node.getAttribute("enabled") == true.toString();
       script._basedir = node.getAttribute("basedir") || ".";
 
       this._scripts.push(script);
@@ -228,6 +228,7 @@ Config.prototype = {
               script._excludes.push(value);
               break;
             case "require":
+			alert("shex, note that there's a require to this script");
               var reqUri = ioservice.newURI(value, null, uri);
               var scriptRequire = new ScriptRequire(script);
               scriptRequire._downloadURL = reqUri.spec;
@@ -391,7 +392,7 @@ Config.prototype = {
 
     if ("0.0" == initialized) {
       // this is the first launch.  show the welcome screen.
-
+		return; // TODO shex, do something here
       // find an open window.
       var windowManager = Components
            .classes['@mozilla.org/appshell/window-mediator;1']
@@ -497,7 +498,12 @@ Script.prototype = {
   },
 
   get fileURL() { return GM_getUriFromFile(this._file).spec; },
-  get textContent() { return getContents(this._file); },
+  get textContent() {
+  	if (this._source) {
+		return this._source;
+	}
+	else return getContents(this._file); 
+  },
 
   _initFileName: function(name, useExt) {
     var ext = "";
@@ -567,7 +573,12 @@ ScriptRequire.prototype = {
   },
 
   get fileURL() { return GM_getUriFromFile(this._file).spec; },
-  get textContent() { return getContents(this._file); },
+  get textContent() { 
+  	if (this._source) {
+		return this._source;
+	}
+	else return getContents(this._file); 
+  },
 
   _initFile: function() {
     var name = this._downloadURL.substr(this._downloadURL.lastIndexOf("/") + 1);
@@ -613,7 +624,12 @@ ScriptResource.prototype = {
     return file;
   },
 
-  get textContent() { return getContents(this._file); },
+  get textContent() { 
+  	if (this._source) {
+		return this._source;
+	}
+	else return getContents(this._file); 
+  },
 
   get dataContent() {
     var appSvc = Components.classes["@mozilla.org/appshell/appShellService;1"]

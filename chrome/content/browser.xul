@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<overlay id="sample" 
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+ <statusbar id="status-bar" >
+    <statusbarpanel 
+     class="statusbarpanel-iconic" 
+     id="mylux-status-bar"
+     src="chrome://webShakes/content/webshakes_icon.png"
+     tooltiptext="webShakes"
+	 width="16" height="16"     
+	 onclick    = "webshakesClicked(event)" 
+   />
+
+ </statusbar>
+  
+  
+  <script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/prefmanager.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/utils.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/config.js" />	
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/convert2RegExp.js" />
+	<!-- <script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/menucommander.js" /> --> 
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/xmlhttprequester.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/miscapis.js" />
+	<!-- <script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/dochandler.js" /> -->
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/scriptdownloader.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/browser.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/accelimation.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/install.js" />
+	
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/versioning.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/xmlhttprequester.js" />
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/miscapis.js" />
+	<!-- <script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/dochandler.js" /> -->
+	
+	<script type="application/x-javascript" src="chrome://webShakes/content/providers/greasemonkey/content/providerAPI.js" />
+    <script type="application/x-javascript" src="chrome://webShakes/content/webShakes.js" />
+    <!-- <script type="application/x-javascript" src="chrome://webShakes/content/json.js" /> --> 
+  
+</overlay>
+

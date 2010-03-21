@@ -32,23 +32,32 @@ GM_BrowserUI.init = function() {
   GM_listen(window, "unload", GM_hitch(this, "chromeUnload"));
 };
 
+
+
+GM_BrowserUI.onStateChange = function(a, b, c, d) {},
+GM_BrowserUI.onProgressChange = function(a, b, c, d, e, f) {},
+GM_BrowserUI.onStatusChange =function(a, b, c, d) {},
+GM_BrowserUI.onSecurityChange =function(a, b, c) {}
+
+
 /**
  * The browser XUL has loaded. Find the elements we need and set up our
  * listeners and wrapper objects.
  */
 GM_BrowserUI.chromeLoad = function(e) {
   // get all required DOM elements
+  
   this.tabBrowser = document.getElementById("content");
   this.appContent = document.getElementById("appcontent");
   this.sidebar = document.getElementById("sidebar");
   this.contextMenu = document.getElementById("contentAreaContextMenu");
-  this.generalMenuEnabledItem = document.getElementById("gm-general-menu-enabled-item");
-  this.toolsMenu = document.getElementById("menu_ToolsPopup");
+  //this.generalMenuEnabledItem = document.getElementById("gm-general-menu-enabled-item");
+  //this.toolsMenu = document.getElementById("menu_ToolsPopup");
 
   // seamonkey compat
-  if (!this.toolsMenu) {
-    this.toolsMenu = document.getElementById("taskPopup");
-  }
+  //if (!this.toolsMenu) {
+  //  this.toolsMenu = document.getElementById("taskPopup");
+  //}
 
   // songbird compat
   if (!this.appContent && this.tabBrowser) {
@@ -58,9 +67,10 @@ GM_BrowserUI.chromeLoad = function(e) {
   // hook various events
   GM_listen(this.appContent, "DOMContentLoaded", GM_hitch(this, "contentLoad"));
   GM_listen(this.sidebar, "DOMContentLoaded", GM_hitch(this, "contentLoad"));
-  GM_listen(this.contextMenu, "popupshowing", GM_hitch(this, "contextMenuShowing"));
-  GM_listen(this.toolsMenu, "popupshowing", GM_hitch(this, "toolsMenuShowing"));
-
+  //GM_listen(this.contextMenu, "popupshowing", GM_hitch(this, "contextMenuShowing"));
+  //GM_listen(this.toolsMenu, "popupshowing", GM_hitch(this, "toolsMenuShowing"));
+  //alert('menu_ToolsPopup has loaded tooldMenuShowing');
+  
 try {
 	// listen for clicks on the install bar
 	Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService).addObserver(this, "install-userscript", true);
@@ -197,7 +207,59 @@ GM_BrowserUI.installCurrentScript = function() {
 
 GM_BrowserUI.installScript = function(script){
   GM_getConfig().install(script);
-  // this.showHorrayMessage(script.name);
+};
+
+/**
+ * The browser's location has changed. Usually, we don't care. But in the case
+ * of tab switching we need to change the list of commands displayed in the
+ * User Script Commands submenu.
+ */
+GM_BrowserUI.onLocationChange = function(a,b,c) {
+ /*
+  if (this.currentMenuCommander != null) {
+    this.currentMenuCommander.detach();
+    this.currentMenuCommander = null;
+  }
+
+  var menuCommander = this.getCommander(this.tabBrowser.selectedBrowser.
+                                        contentWindow);
+
+  if (menuCommander) {
+    this.currentMenuCommander = menuCommander;
+    this.currentMenuCommander.attach();
+  }
+  */
+};
+
+/**
+ * A content document has unloaded. We need to remove it's menuCommander to
+ * avoid leaking it's memory.
+ */
+GM_BrowserUI.contentUnload = function(e) {
+  if (e.persisted) {
+    return;
+  }
+
+  var unsafeWin = e.target.defaultView;
+
+  // remove the commander for this document
+  var commander = null;
+
+  // looping over commanders rather than using getCommander because we need
+  // the index into commanders.splice.
+  for (var i = 0; item = this.menuCommanders[i]; i++) {
+    if (item.win == unsafeWin) {
+
+      if (item.commander == this.currentMenuCommander) {
+        this.currentMenuCommander.detach();
+        this.currentMenuCommander = null;
+      }
+
+      this.menuCommanders.splice(i, 1);
+
+      break;
+    }
+  }
 };
 
 /**
@@ -252,6 +314,7 @@ GM_BrowserUI.getUserScriptLinkUnderPointer = function() {
   return uri;
 };
 
+/*
 GM_BrowserUI.toolsMenuShowing = function() {
   var installItem = ge("userscript-tools-install");
   var hidden = true;
@@ -264,7 +327,7 @@ GM_BrowserUI.toolsMenuShowing = function() {
   // Better to use hidden than collapsed because collapsed still allows you to
   // select the item using keyboard navigation, but hidden doesn't.
   installItem.setAttribute("hidden", hidden.toString());
-};
+};*/
 
 /**
  * Helper to determine if a given dom window is in this tabbrowser
@@ -282,9 +345,6 @@ GM_BrowserUI.isMyWindow = function(domWindow) {
   return false;
 };
 
-log("calling init...");
-GM_BrowserUI.init();
-
 /**
  * 
  */
@@ -296,13 +356,21 @@ GM_BrowserUI.applyScript = function(fileURI, timer) {
 
     return;
   }
-  this.scriptDownloader_ = new ScriptDownloader(window, fileURI, this.bundle);
-  this.scriptDownloader_.startPreviewScript();
+
+  var ioservice = Components.classes["@mozilla.org/network/io-service;1"].getService(Components.interfaces.nsIIOService);
+  var sourceUri = ioservice.newURI(fileURI, null, null);
+
+  this.scriptDownloader_ = new GM_ScriptDownloader(window, sourceUri, this.bundle);
+  this.scriptDownloader_.startPreviewScript(); // which after download and parsing calls GM_BrowserUI.previewScript
 };
 
 GM_BrowserUI.previewScript = function(script){
 	if (!this.gmSvc) {
 		this.gmSvc = Components.classes["@greasemonkey.mozdev.org/greasemonkey-service;1"].getService(Components.interfaces.gmIGreasemonkeyService);
 	}
+	// FIXME: TODO shex, you have to inject script's requires first
 	this.gmSvc.applyScript(script.name, script.namespace, script._source,  {wrappedJSObject: this.tabBrowser.selectedBrowser.contentWindow }, window);
 };
+
+log("calling init...");
+GM_BrowserUI.init();
