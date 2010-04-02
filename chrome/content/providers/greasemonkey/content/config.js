@@ -219,6 +219,14 @@ Config.prototype = {
             case "name":
             case "namespace":
             case "description":
+            case "version":
+            case "author":
+            case "copyright":
+            case "license":
+            case "contributor":
+            case "homepage":
+            case "interface":
+            case "implements":
               script["_" + header] = value;
               break;
             case "include":

@@ -166,7 +166,10 @@ GM_BrowserUI.startInstallScript = function(uri, timer) {
     return;
   }
 
-  this.scriptDownloader_ = new GM_ScriptDownloader(window, uri, this.bundle);
+  var ioservice = Components.classes["@mozilla.org/network/io-service;1"].getService(Components.interfaces.nsIIOService);
+  var sourceUri = ioservice.newURI(uri, null, null);
+
+  this.scriptDownloader_ = new GM_ScriptDownloader(window, sourceUri, this.bundle);
   this.scriptDownloader_.startInstall();
 };
 

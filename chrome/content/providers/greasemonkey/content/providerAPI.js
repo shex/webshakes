@@ -98,9 +98,12 @@ var GM_provider = {
 	 * Request preview of an installed mix
 	 */
 	preview: function (fileURI){
-		//  TODO shex, start with implementing this method but replace body with a throw UnSupportedException
-		GM_BrowserUI.applyScript(fileURI);
+		GM_BrowserUI.applyScript(fileURI); // download script form fileURI and apply it afterwards
 	},
+    
+    previewScript: function(script) {
+        GM_BrowserUI.previewScript(script); // apply script directly (probably local)
+    },
 
 	unPreview: function (MixId){
 		//  TODO shex, implement - throw UnSupportedException
@@ -112,11 +115,11 @@ var GM_provider = {
 	 * icon could be null
 	 */
 	parseFile: function (file){
-		//  TODO shex, implement, return {name, namespace, description, auther, license, icon} 
+		//  TODO shex, implement, return {name, namespace, description, author, license, icon} 
 	},
 
 	parseFileContent: function (fileContent){
-		//  TODO shex, implement, return {name, namespace, description, auther, license, icon} 
+		//  TODO shex, implement, return {name, namespace, description, author, license, icon} 
 	},
 		
 	/**

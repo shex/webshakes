@@ -8,7 +8,7 @@
      src="chrome://webShakes/content/webshakes_icon.png"
      tooltiptext="webShakes"
 	 width="16" height="16"     
-	 onclick    = "webshakesClicked(event)" 
+	 onclick    = "webshakesIconClicked(event)" 
    />
 
  </statusbar>

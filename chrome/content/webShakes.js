@@ -74,6 +74,10 @@ var WebShakes = (function(){
 			alert("WebShakes (Internal Error) - couldn't find a provider for file " + fileURI);
 		},
 
+        previewGMScript: function(script) {
+            GM_provider.previewScript(script);
+        },
+
 		//----------------------------------------------
 		// ---------  Provider Callback API   --------
 		//----------------------------------------------
@@ -165,8 +169,9 @@ var webshakesIFrame; // This is the iframe which will comprise the html used for
 
 function animateOpenWindow() {
 	var currentHeight = parseInt(webshakesIFrame.style.height);
-	if(currentHeight > animationTargetSize){		
+	if(currentHeight > animationTargetSize - 10){		
 		webshakesIFrame.style.height = animationTargetSize + 'px';
+        webshakesIFrameFullHeight = false;
 		return;
 	}
 	else{
@@ -178,7 +183,8 @@ function animateOpenWindow() {
 function animateMinimizeWindow() {
 
 	var currentHeight = parseInt(webshakesIFrame.style.height);
-	if(currentHeight < animationTargetSize){		
+	if(currentHeight < animationTargetSize + 10 ){
+        webshakesIFrameFullHeight = false;		
 		return;
 	}
 	else{
@@ -199,14 +205,172 @@ function animateCloseWindow() {
 	}
 }
 
+function loadLocalScript(file) {
+		// open an input stream from file  
+		var istream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream);
+		istream.init(file, 0x01, 0444, 0);
+		istream.QueryInterface(Components.interfaces.nsILineInputStream);  
+
+		// read lines into array  
+		var line = {}, lines = [], hasmore;
+		var sourceCode = [""];  
+		do {  
+		  hasmore = istream.readLine(line);  
+		  lines.push(line.value + "\n");
+		  sourceCode.push(line.value);   
+		} while(hasmore);  
+		var ending = "\n";
+	    if (window.navigator.platform.match(/^Win/)) ending = "\r\n";
+  		sourceCode = sourceCode.join(ending);
+
+		istream.close();
+
+		// create a script object with parsed metadata,
+		var config = GM_getConfig();
+		var script = config.parse(sourceCode, file);
+        script._source = sourceCode;
+		return script;
+}
+
+function showField(index, fieldId) {
+    fieldId = fieldId + "_" + index;
+	var titleElement = webshakesIFrame.contentWindow.document.getElementById(fieldId);
+	titleElement.style.display = "";
+}
+
+function updateFieldText(index, fieldId, text) {
+    fieldId = fieldId + "_" + index;
+	var titleElement = webshakesIFrame.contentWindow.document.getElementById(fieldId);
+	titleElement.innerHTML = text
+}
+
+function updateSingleFieldValue(fieldId, text) {
+    fieldId = fieldId;
+	var titleElement = webshakesIFrame.contentWindow.document.getElementById(fieldId);
+	titleElement.value = text
+}
+
+// TODO shex, you should make sure you update the correct iframe
+//var webshakesIFrame = viewedDocument.getElementById(webShakesId);
+function updateFieldsText(script, index) {
+	
+	var webShakesId = 'WebShakes.net'
+	
+	// title
+	var text = script._name.substring(0,30);
+	updateFieldText(index, "closed_title", text);
+	updateFieldText(index,"opened_title", text);
+	
+	// description 
+	text = script._description.substring(0,90); // TODO shex, a line break should be adding after 45 chars
+	updateFieldText(index,"closed_description", text);
+	text = script._description.substring(0,370); // TODO shex, a line break should be adding after 45 chars
+	updateFieldText(index,"opened_description", text);
+	
+	text = script._version.substring(0,15);
+	updateFieldText(index,"version_text", text);
+	
+	updateFieldText(index,"tags_text", "N\\A");
+	updateFieldText(index,"filter_text", "N\\A");
+ 
+    var len = script._includes.length;
+    for (var i = 0; i < len; i++) {
+        var fieldId = "extra_details_item_text_" + i
+        if (i == 2 && len > 3) {
+            updateFieldText(index, fieldId, "More sites");
+            break;
+        }
+        
+        var newInclude = script._includes[i].substring(0,18);
+        if (script._includes[i] != newInclude) newInclude = newInclude+ " ..."  
+        updateFieldText(index, fieldId, newInclude);
+        
+        var fieldId = "extra_details_favicon_" + i
+        var imageHTML = '<img height="16" width="16" alt="Attach" src="/images/dialog/no_favicon.gif">';
+        updateFieldText(index, fieldId, imageHTML);
+    }
+    
+    var imageHTML = '<img height="28" width="28" alt="Attach" src="/images/dialog/default.gif">';
+    updateFieldText(index, "closed_thumbnail" ,imageHTML);
+    updateFieldText(index, "opened_thumbnail" ,imageHTML);
+    
+    // add script source to form (hidden)
+    updateSingleFieldValue("script_scriptSource", script._source); 
+    updateSingleFieldValue("script_scriptTest", script._test);
+    
+    // make actions visible
+    showField(index, "action_corner_item_0"); // add to WS
+    showField(index, "action_corner_item_1"); // add to USO
+    showField(index, "action_corner_item_2"); // add test
+    if  (script._implements) {
+        showField(index, "action_corner_item_3"); // add conformance
+    }
+    showField(index, "open_significant_action");// show go button
+    showField(index, "preview_button");            // show play button
+    
+}
+
+var loadedScript; // TODO shex, this too should be per tab
+function loadNewScript() {
+	var e = webshakesIFrame.contentWindow.document.getElementById('webshakesLoadLocalMixEvent');
+	var recommendationIndex = e.getAttribute('recommendationIndex'); // TODO shex, you'll probably need to add tab index or search-result-id soon
+	
+	var nsIFilePicker = Components.interfaces.nsIFilePicker;
+    var filePicker = Components.classes["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
+
+    filePicker.init(window, "Preview a local script", nsIFilePicker.modeOpen);
+    filePicker.appendFilter("only user scripts for now", "*.user.js");// TODO shex, this doesn't work, find out why
+    filePicker.appendFilters(nsIFilePicker.filterAll);  
+
+    if (filePicker.show() != nsIFilePicker.returnOK) {
+	    GM_log("User canceled file picker dialog");
+    		return;
+    }
+
+	GM_log("User selected: " + filePicker.file.path);
+
+    if (filePicker.file.exists()) {
+		script = loadLocalScript(filePicker.file);
+		var viewedDocument = window.content.document;
+		try {
+			updateFieldsText(script, recommendationIndex);
+			
+		}catch(e){alert(e)}
+		
+		// finish making the script object ready to install
+		script.setDownloadedFile(filePicker.file);
+        loadedScript = script;
+        return;
+        
+         // TODO shex, move this to part before actually running\installing
+        
+		// install this script
+		config.install(script);
+		
+		// persist namespace value
+		GM_prefRoot.setValue("newscript_namespace", script.namespace); 
+	}
+	else {
+		alert("sorry, couldn't load script... try again please");
+	}
+}
+
 function handleApplyMix() {
 	var e = webshakesIFrame.contentWindow.document.getElementById('webshakesPreviewMix');
 	var mixURI = e.getAttribute('mixURI');
-	WebShakes.previewMix(mixURI);
+    if (mixURI != "__webshakes_local_script") {
+        	WebShakes.previewMix(mixURI);
+     	
+        animationTargetSize = 180;// small dialog layout
+        webshakesIFrameFullHeight = false;
+
+    }
+    else {
+        WebShakes.previewGMScript(loadedScript);
+        animationTargetSize = 0;// small dialog layout
+        webshakesIFrameFullHeight = false;
+    }
 	
-	// small dialog layout
-	animationTargetSize = 180;
-	webshakesIFrameFullHeight = false;
 	animateMinimizeWindow();
 }
 
@@ -245,31 +409,29 @@ function handleInstallMix() {
  * handle clicking on icon (status bar)
  * left-click starts search, right click shows the popup
  */
-function webshakesClicked(aEvent) {
-	
-  if (aEvent.button == 0 || aEvent.button == 2) {
-    //var script = aEvent.target.script;
-    //if (!script) return;
+function webshakesIconClicked(aEvent) {
 
-    if (aEvent.button == 0) // left-click: search 
-      	webshakes_Search()
-    else // right-click: show the menu
-      	webshakes_showMenu();
-  }
+	switch(aEvent.button) {
+		case 0: // left click
+		  //webshakes_addScript()
+		  webshakes_search(); // webshakes_addInterface();
+		  break;
+		case 1: // middle click
+		  //webshakes_search();
+          webshakes_addScript();
+		  break;
+		case 2: // right click
+		  //webshakes_manageInstalled();
+		  webshakes_showMenu();
+	}
 }
 
 // TODO shex, unite this code with search and manage
 function webshakes_showMenu() {
-	var action = 'menus/show';
 	var viewedDocument = window.content.document;
-	var getURI = 'http://localhost:3001/' + action
+	var getURI = 'http://localhost:3001/menus/show';
 	var webShakesId = 'WebShakes.net'
 	try {
-		// position:fixed means stay fixed even the page scrolls. z-index keeps your iframe on top.
-		// The remainder of the line smacks the panel into the bottom right corner, out of your way.
-		// Overflow (in combination with the setTimeout) ensures the iframe fits your entire panel.
-		var css = 'position:fixed; z-index:9999; bottom:0px; right:0px; border:0; margin:0; padding:0; ' +
-		'overflow:hidden; height:0; width:220px; display:normal'
 		
 		webshakesIFrame = viewedDocument.getElementById(webShakesId);
 		if (webshakesIFrame == null) {
@@ -277,6 +439,7 @@ function webshakes_showMenu() {
 			webshakesIFrame.setAttribute('id', webShakesId);
 			viewedDocument.body.appendChild(webshakesIFrame);
 		}
+		var css = 'position:fixed; z-index:9999; bottom:0px; right:0px; border:0; margin:0; padding:0; overflow:hidden; height:0; width:220px; display:normal'
 		webshakesIFrame.setAttribute('style', css);
 		webshakesIFrame.src = getURI;
 		
@@ -287,12 +450,13 @@ function webshakes_showMenu() {
 		// Make sure Firefox initializes the DOM before we try to use it.
 		webshakesIFrame.addEventListener("load", function(aEvent){
 			
-			//viewedDocument.getElementByID('small_dialog').focus();
 			animateOpenWindow();
-			webshakesIFrame.contentWindow.document.addEventListener("webshakes-close-event", animateCloseWindow, false);
-			webshakesIFrame.contentWindow.document.addEventListener('webshakes-search-menu-clicked-event', webshakes_Search, false);
-			webshakesIFrame.contentWindow.document.addEventListener('webshakes-manage-installed-menu-clicked-event', webshakes_manageInstalled, false);
-			
+            var doc = webshakesIFrame.contentWindow.document;
+			doc.addEventListener("webshakes-close-event", animateCloseWindow, false);
+			doc.addEventListener('webshakes-search-menu-clicked-event', webshakes_search, false);
+			doc.addEventListener('webshakes-manage-installed-menu-clicked-event', webshakes_manageInstalled, false);
+            doc.addEventListener('webshakes-add-new-script-event', webshakes_addScript, false);
+            doc.addEventListener('webshakes-search-for-interfaces-event', webshakes_searchInterfaces, false);
 		}, false);
 	} 
 	catch (e) {
@@ -301,21 +465,52 @@ function webshakes_showMenu() {
 	
 }
 
+function webshakes_searchTerms() {
+    var termsTextbox = webshakesIFrame.contentWindow.document.getElementById("search_text"); 
+    if (termsTextbox) {
+        terms = termsTextbox.value.split("\\s+").join(",");
+    }
+    if (!terms) return;
+    var userURI = window.content.document.location;
+            
+    	var params = '?filterByURI=' + encodeURIComponent(userURI)
+          params = params + '&filterByTerms=' + encodeURIComponent(terms);
+    	var getURI = 'http://localhost:3001/scripts/' + params;
+        
+        // show the GUI 
+        webshakes_addDialogToDisplayedPage(getURI, "preview");
+}
+
+function webshakes_searchInterfaces() {
+    alert("webshakes_searchInterfaces chosen");
+}
+
+function webshakes_addScript() {
+	var getURI = 'http://localhost:3001/scripts/new'
+	webshakes_addDialogToDisplayedPage(getURI, "preview");
+}
+
+function webshakes_addInterface() {
+	var getURI = 'http://localhost:3001/scripts/new?type=interface'
+	webshakes_addDialogToDisplayedPage(getURI, "interface");
+}
+
 function webshakes_manageInstalled() {
-	var action = 'opinion/show?all=true';
-	var getURI = 'http://localhost:3001/' + action
+	var getURI = 'http://localhost:3001/opinions'
 	webshakes_addDialogToDisplayedPage(getURI, "manage");
 }
 
-function webshakes_Search() {
-	var action = 'search';
+function webshakes_search() {
+    // build request URI
 	var userURI = window.content.document.location;
-	var params = '?url=' + encodeURIComponent(userURI)
-	var getURI = 'http://localhost:3001/' + action + params;
-    webshakes_addDialogToDisplayedPage(getURI, "search");
+	var params = '?filterByURI=' + encodeURIComponent(userURI)
+	var getURI = 'http://localhost:3001/scripts/' + params;
+    
+    // create the GUI 
+    webshakes_addDialogToDisplayedPage(getURI, "preview");
 }
 
-function webshakes_addDialogToDisplayedPage(getURI, action) {
+function webshakes_addDialogToDisplayedPage(getURI, eventsToAdd) {
 	var viewedDocument = window.content.document;
 	
 	var webShakesId = 'WebShakes.net'
@@ -345,8 +540,13 @@ function webshakes_addDialogToDisplayedPage(getURI, action) {
 				animateOpenWindow();
 			}			
 			
-			switch(action) {
-				case "search":
+           // var termsTextbox = webshakesIFrame.contentWindow.document.getElementById('search_text');
+            // if (termsTextbox) termsTextbox.focus();
+            setTimeout("  var termsTextbox = webshakesIFrame.contentWindow.document.getElementById('search_text'); if (termsTextbox) termsTextbox.focus(); ", 1000);
+
+            
+			switch(eventsToAdd) {
+				case "preview":
 				    webshakes_addEventListenersForSearch();
 					break;
 				case "manage":
@@ -366,14 +566,18 @@ function webshakes_addDialogToDisplayedPage(getURI, action) {
 }
 
 function webshakes_addEventListenersForManage() {
-	webshakesIFrame.contentWindow.document.body.addEventListener("webshakes-close-event", animateCloseWindow, false);
-	webshakesIFrame.contentWindow.document.body.addEventListener("webshakes-uninstall-mix-event", handleUninstallMix, false);
-	webshakesIFrame.contentWindow.document.body.addEventListener("webshakes-toggle-enable-mix-event", handleToggleEnableMix, false);
-	// webshakesIFrame.contentWindow.document.addEventListener("webshakes-apply-mix-event", handleApplyMix, false);	
+    var doc = webshakesIFrame.contentWindow.document.body;
+    
+    	doc.addEventListener("webshakes-close-event", animateCloseWindow, false, true);
+    	doc.addEventListener("webshakes-uninstall-mix-event", handleUninstallMix, false, true);
+    	doc.addEventListener("webshakes-toggle-enable-mix-event", handleToggleEnableMix, false, true);
 }
 
 function webshakes_addEventListenersForSearch() {
-	webshakesIFrame.contentWindow.document.body.addEventListener("webshakes-close-event", animateCloseWindow, false, true);
-	webshakesIFrame.contentWindow.document.body.addEventListener("webshakes-install-mix-event", handleInstallMix, false);
-	webshakesIFrame.contentWindow.document.body.addEventListener("webshakes-apply-mix-event", handleApplyMix, false);
+    var doc = webshakesIFrame.contentWindow.document.body;
+	doc.addEventListener("webshakes-close-event", animateCloseWindow, false, true);
+	doc.addEventListener("webshakes-install-mix-event", handleInstallMix, false, true);
+	doc.addEventListener("webshakes-apply-mix-event", handleApplyMix, false, true);
+	doc.addEventListener("webshakesLoadLocalMixEvent", loadNewScript, false, true);
+    doc.addEventListener('webshakes-filter-by-terms-event', webshakes_searchTerms, false);
 }

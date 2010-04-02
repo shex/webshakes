@@ -1,44 +1,39 @@
 #!/bin/sh
 
 # Set up variables
-GMMAX=${1-0}
-GMMIN=${2-8}
-GMREL=${3-0}
-GMBUILD=`date +"%Y%m%d"`
-GMNAME=greasemonkey
-GMVER="$GMMAX.$GMMIN.$GMBUILD.$GMREL"
-GMXPI="$GMNAME-$GMVER.xpi"
+NAME=webshakes
+VERSION=`grep "<em:version>" install.rdf | sed -r "s/^\s*<em:version>(.+)<\/em:version>\s*$/\\1/"`
+BUILD=$VERSION
+if [ "$1" != "-r" ]; then
+	DATE=`date +"%Y%m%d"`
+	BUILD="$BUILD.$DATE.${1-0}"
+fi
+XPI="$NAME-$BUILD.xpi"
 
 # Copy base structure to a temporary build directory and change to it
 echo "Creating working directory ..."
 rm -rf build
 mkdir build
-cp -r \
-	chrome.manifest components content defaults install.rdf license.txt locale \
+cp -r chrome.manifest install.rdf LICENSE \
+	defaults components chrome locale modules skin \
 	build/
 cd build
 
-echo "Gathering all locales into chrome.manifest ..."
-GMLOC="en-US"
-for entry in locale/*; do
-  entry=`basename $entry`
-  if [ $entry != en-US ]; then
-    echo "locale  $GMNAME  $entry  locale/$entry/" >> chrome.manifest
-    GMLOC="$GMLOC, $entry"
-  fi
-done
+LOCALES=\"en-US\"
 
 echo "Patching install.rdf version ..."
-sed -i "s!<em:version>.*</em:version>!<em:version>$GMVER</em:version>!" \
-  install.rdf
+#sed "s!<em:version>.*</em:version>!<em:version>$BUILD</em:version>!" \
+#  install.rdf > install.rdf.tmp
+#mv install.rdf.tmp install.rdf
 
 echo "Cleaning up unwanted files ..."
+find . -depth -name '.svn' -exec rm -rf "{}" \;
 find . -depth -name '*~' -exec rm -rf "{}" \;
 find . -depth -name '#*' -exec rm -rf "{}" \;
 
-echo "Creating $GMXPI ..."
-zip -qr9X "../$GMXPI" *
+echo "Creating $XPI ..."
+zip -qr9X "../$XPI" *
 
 echo "Cleaning up temporary files ..."
 cd ..
-rm -rf build
+#rm -rf build

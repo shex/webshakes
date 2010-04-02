@@ -38,8 +38,6 @@ ScriptDownloader.prototype.startDownload = function() {
 };
 
 ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
-//  this.win_.GM_BrowserUI.refreshStatus(); TODO shex, either add logging or delete
-//  this.win_.GM_BrowserUI.hideStatusImmediately();
 
   try {
     // If loading from file, status might be zero on success
