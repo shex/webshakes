@@ -429,7 +429,7 @@ function webshakesIconClicked(aEvent) {
 // TODO shex, unite this code with search and manage
 function webshakes_showMenu() {
 	var viewedDocument = window.content.document;
-	var getURI = 'http://localhost:3001/menus/show';
+	var getURI = 'http://webshakes.net/menus/show';
 	var webShakesId = 'WebShakes.net'
 	try {
 		
@@ -475,7 +475,7 @@ function webshakes_searchTerms() {
             
     	var params = '?filterByURI=' + encodeURIComponent(userURI)
           params = params + '&filterByTerms=' + encodeURIComponent(terms);
-    	var getURI = 'http://localhost:3001/scripts/' + params;
+    	var getURI = 'http://webshakes.net/scripts/' + params;
         
         // show the GUI 
         webshakes_addDialogToDisplayedPage(getURI, "preview");
@@ -486,17 +486,17 @@ function webshakes_searchInterfaces() {
 }
 
 function webshakes_addScript() {
-	var getURI = 'http://localhost:3001/scripts/new'
+	var getURI = 'http://webshakes.net/scripts/new'
 	webshakes_addDialogToDisplayedPage(getURI, "preview");
 }
 
 function webshakes_addInterface() {
-	var getURI = 'http://localhost:3001/scripts/new?type=interface'
+	var getURI = 'http://webshakes.net/scripts/new?type=interface'
 	webshakes_addDialogToDisplayedPage(getURI, "interface");
 }
 
 function webshakes_manageInstalled() {
-	var getURI = 'http://localhost:3001/opinions'
+	var getURI = 'http://webshakes.net/opinions'
 	webshakes_addDialogToDisplayedPage(getURI, "manage");
 }
 
@@ -504,7 +504,7 @@ function webshakes_search() {
     // build request URI
 	var userURI = window.content.document.location;
 	var params = '?filterByURI=' + encodeURIComponent(userURI)
-	var getURI = 'http://localhost:3001/scripts/' + params;
+	var getURI = 'http://webshakes.net/scripts/' + params;
     
     // create the GUI 
     webshakes_addDialogToDisplayedPage(getURI, "preview");
