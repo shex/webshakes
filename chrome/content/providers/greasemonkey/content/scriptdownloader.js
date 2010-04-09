@@ -11,6 +11,7 @@ function ScriptDownloader(win, uri, bundle) {
   this.depQueue_ = [];
   this.dependenciesLoaded_ = false;
   this.installOnCompletion_ = false;
+  this.previewOnCompletion_ = false;
   this.tempFiles_ = [];
 }
 
@@ -76,11 +77,10 @@ ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
 
     this.script.setDownloadedFile(file);
     
-	// we're saving the script source so we can later inject it (on hte fly)
+	// we're saving the script source so we can later inject it (on the fly). TODO shex, it's unclear why textContent() won't work
 	this.script._source = source;
 
-    // TODO shex, revive!! you'll need them
-    //    window.setTimeout(GM_hitch(this, "fetchDependencies"), 0);
+    window.setTimeout(GM_hitch(this, "fetchDependencies"), 0);
 
     if(this.installing_){
 		this.startScriptInstall();
@@ -95,19 +95,21 @@ ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
 };
 
 ScriptDownloader.prototype.fetchDependencies = function(){
+try {
   GM_log("Fetching Dependencies");
   var deps = this.script.requires.concat(this.script.resources);
   for (var i = 0; i < deps.length; i++) {
-    var dep = deps[i];
-    if (this.checkDependencyURL(dep.urlToDownload)) {
-      this.depQueue_.push(dep);
-    } else {
-      this.errorInstallDependency(this.script, dep,
-        "SecurityException: Request to local and chrome url's is forbidden");
-      return;
-    }
+      var dep = deps[i];
+      if (this.checkDependencyURL(dep.urlToDownload)) {
+          this.depQueue_.push(dep);
+      }
+      else {
+          this.errorInstallDependency(this.script, dep, "SecurityException: Request to local and chrome url's is forbidden");
+          return;
+      }
   }
   this.downloadNextDependency();
+}catch(e) {alert("error in fetchDependencies:" + e)}
 };
 
 ScriptDownloader.prototype.downloadNextDependency = function(){
@@ -126,7 +128,7 @@ ScriptDownloader.prototype.downloadNextDependency = function(){
       var sourceUri = ioservice.newURI(dep.urlToDownload, null, null);
       var sourceChannel = ioservice.newChannelFromURI(sourceUri);
       sourceChannel.notificationCallbacks = new NotificationCallbacks();
-
+      
       var file = getTempFile();
       this.tempFiles_.push(file);
 
@@ -138,6 +140,7 @@ ScriptDownloader.prototype.downloadNextDependency = function(){
       persist.saveChannel(sourceChannel,  file);
     } catch(e) {
       GM_log("Download exception " + e);
+      alert("Download exception for dependency " + e);
       this.errorInstallDependency(this.script, dep, e);
     }
   } else {
@@ -149,6 +152,7 @@ ScriptDownloader.prototype.downloadNextDependency = function(){
 ScriptDownloader.prototype.handleDependencyDownloadComplete =
 function(dep, file, channel) {
   GM_log("Dependency Download complete " + dep.urlToDownload);
+
   try {
     var httpChannel =
       channel.QueryInterface(Components.interfaces.nsIHttpChannel);
@@ -192,13 +196,21 @@ ScriptDownloader.prototype.checkDependencyURL = function(url) {
 ScriptDownloader.prototype.finishInstall = function(){
   if (this.installOnCompletion_) {
     this.installScript();
+    return;
   }
+  else if (this.previewOnCompletion_) {
+    this.previewScript();
+    return;
+  } 
 };
 
 ScriptDownloader.prototype.errorInstallDependency = function(script, dep, msg){
   GM_log("Error loading dependency " + dep.urlToDownload + "\n" + msg)
   if (this.installOnCompletion_) {
-    alert("Error loading dependency " + dep.urlToDownload + "\n" + msg);
+         alert("Error loading dependency " + dep.urlToDownload + "\n" + msg);
+  } 
+  else if (this.previewOnCompletion_){
+         alert("Error loading dependency " + dep.urlToDownload + "\n" + msg);
   } else {
     this.dependencyError = "Error loading dependency " + dep.urlToDownload + "\n" + msg;
   }
@@ -206,37 +218,34 @@ ScriptDownloader.prototype.errorInstallDependency = function(script, dep, msg){
 
 ScriptDownloader.prototype.installScript = function(){
   try {
-		this.win_.GM_BrowserUI.installScript(this.script);
+		  if (this.dependencyError) {
+                alert(this.dependencyError);
+          } 
+          else if(this.dependenciesLoaded_) {
+                this.win_.GM_BrowserUI.installScript(this.script);
+          } 
+          else {
+                // do nothing, we'll execute installScript later
+                this.installOnCompletion_ = true;
+          }
   } 
   catch (e) {alert(e + " line=" + e.lineNumber)}
-
-  // TODO shex, revive and rewrite 
-  //if (this.dependencyError) {
-  //   alert(this.dependencyError);
-  // } else if(this.dependenciesLoaded_) {	
-  
-  //} else {
-  //  this.installOnCompletion_ = true;
-  //} 
 };
 
 ScriptDownloader.prototype.previewScript = function(){
-  if (this.dependencyError) {
-  	alert(this.dependencyError);
-  }
-  else { // if(this.dependenciesLoaded_) { TODO shex, revive!
-			try {
-				this.win_.GM_BrowserUI.previewScript(this.script);
-			} 
-			catch (e) {
-				alert(e + " line=" + e.lineNumber)
-			}
-		}
-  // TODO shex, revive!
-  //   this.win_.GM_BrowserUI.installScript(this.script)
-  // } else {
-  //   this.installOnCompletion_ = true;
-  // }
+  try {
+		  if (this.dependencyError) {
+                alert(this.dependencyError);
+          } 
+          else if(this.dependenciesLoaded_) {
+              this.win_.GM_BrowserUI.previewScript(this.script);
+          } 
+          else {
+                // do nothing, we'll execute previewScript later
+                this.previewOnCompletion_ = true;
+          }
+  } 
+  catch (e) {alert(e + " line=" + e.lineNumber)}
 };
 
 ScriptDownloader.prototype.cleanupTempFiles = function() {
@@ -281,6 +290,15 @@ NotificationCallbacks.prototype.getInterface = function(aIID) {
   }
   return undefined;
 };
+
+// TODO shex, remove dead code
+// tried to resolve the issue of  of redirection in dependencies
+//NotificationCallbacks.prototype.onChannelRedirect
+//NotificationCallbacks.prototype.onRedirect = function(aOldChannel, aNewChannel) {
+//    alert("a redirect had happen");
+//};
+  
+
 
 
 function PersistProgressListener(persist) {

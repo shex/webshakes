@@ -75,59 +75,37 @@ var WebShakes = (function(){
 		},
 
         previewGMScript: function(script) {
-            GM_provider.previewScript(script);
+            if (script.requires && script.requires.length > 0) {
+                    // need to load dependencies first
+                   var ioservice = null; // Components.classes["@mozilla.org/network/io-service;1"].getService(Components.interfaces.nsIIOService);
+                   var sourceUri = null; //ioservice.newURI(fileURI, null, null);
+                   var bundle = null 
+                   var scriptDownloader = new GM_ScriptDownloader(window, sourceUri, bundle);
+                   scriptDownloader.script = script;
+                   scriptDownloader.previewScript() ; // merely turns on the 'previewOnCompletion_'
+                   // start download
+                   scriptDownloader.fetchDependencies(); // TODO shex, revive next line instead
+                   //setTimeout(GM_hitch(scriptDownloader, "fetchDependencies"), 0);
+            }
+            else {
+                    // stand alone, just inject
+        	            GM_provider.previewScript(script);
+            }
+
         },
 
 		//----------------------------------------------
-		// ---------  Provider Callback API   --------
+		// ------------  Provider Callback API   -------------
 		//----------------------------------------------
 
-		/**
-		* Install a mix
-		* returns MixId installCallBack
-		*/
-		installCallback: function (mixId, fileURI) {
-			alert("the requested file" + fileURI + " was successfully installed with mixId " + mixId);
-		},
-		
-		/**
-	  	  * Report that hits mix had unexpected behavior 
-		  * level is on of {low, medium, high}
-		  */
-		reportProblem: function (mixId,  level) {
-			// TODO shex implement
-		},
-
-		/**
-		  * Request a temporary file with a specific content
-		  * returns URI 
-		  * throws OverQuataException  if granting request will cause to exceed the configured limit
-		  */
-		getTempFile: function(content) { 
-			return null;
-			// TODO shex implement
-		}, 
-
-		/**
-		 * Make a synchronous call for a remote value
-		 * Scope - namespace
-		 * TTL - for each key, we keep the version which it was read
-		 * returns string
-		 */
-		getGlobalValue: function (key) {
-			return null;
-			// TODO shex implement
-		},
-		 
 		/**
 		 * Make a synchronous call for a remote store value
 		 * Scope - namespace
 		 * throws OverQuataException, if granting request will cause to exceed the configured limit
 		 * throws InvalidView if 
 		 */
-		setGlobalValue: function (key, value) {
-			return null;
-			// TODO shex implement
+		allowInstall: function (scriptName, scriptNamespace) {
+			updateFieldsTextAfterApply(loadedScriptIndex);
 		},
 		
 		//----------------------------------------------
@@ -135,7 +113,7 @@ var WebShakes = (function(){
 		//----------------------------------------------
  
 		
-		// convert a single instance's method invocation to a function
+		// convert a single instance's method invocation to a function. TODO shex, remove method (not used)
 		__bind: function(obj, method) {
 			  if (!obj[method]) {
 			    throw "method '" + method + "' does not exist on object '" + obj + "'";
@@ -228,6 +206,7 @@ function loadLocalScript(file) {
 		// create a script object with parsed metadata,
 		var config = GM_getConfig();
 		var script = config.parse(sourceCode, file);
+        // script._checkConformance = true; // causes conformance check after apply
         script._source = sourceCode;
 		return script;
 }
@@ -299,21 +278,33 @@ function updateFieldsText(script, index) {
     updateSingleFieldValue("script_scriptTest", script._test);
     
     // make actions visible
-    showField(index, "action_corner_item_0"); // add to WS
-    showField(index, "action_corner_item_1"); // add to USO
+    showField(index, "action_corner_item_0"); // add to USO
+    showField(index, "action_corner_item_1"); // add to install locally
     showField(index, "action_corner_item_2"); // add test
-    if  (script._implements) {
-        showField(index, "action_corner_item_3"); // add conformance
-    }
+    // showField(index, "action_corner_item_3"); // add to WS, shown after applying and passing conformance
+    
     showField(index, "open_significant_action");// show go button
     showField(index, "preview_button");            // show play button
+}
+
+function updateFieldsTextAfterApply(scriptIndex)  {
+    // TODO shex, plain ugly #2, we're counting that an exception will be thrown if it's not local script => no alert for regular on-the-fly apply
+    try {
+        showField(scriptIndex, "action_corner_item_3"); // add to WS    
+        alert("Script was applied\nConformance test completed successfully \nYou can now upload script to WebShakes");
+    }catch(e){
+        // alert("couldn't find element with id " + fieldId);
+    }
     
 }
 
+var loadedScriptIndex; // TODO shex, this too should be per tab
 var loadedScript; // TODO shex, this too should be per tab
 function loadNewScript() {
+  try{
 	var e = webshakesIFrame.contentWindow.document.getElementById('webshakesLoadLocalMixEvent');
-	var recommendationIndex = e.getAttribute('recommendationIndex'); // TODO shex, you'll probably need to add tab index or search-result-id soon
+	var scriptIndex = e.getAttribute('recommendationIndex'); // TODO shex, you'll probably need to add tab index or search-result-id soon
+	loadedScriptIndex = scriptIndex;
 	
 	var nsIFilePicker = Components.interfaces.nsIFilePicker;
     var filePicker = Components.classes["@mozilla.org/filepicker;1"].createInstance(nsIFilePicker);
@@ -332,17 +323,14 @@ function loadNewScript() {
     if (filePicker.file.exists()) {
 		script = loadLocalScript(filePicker.file);
 		var viewedDocument = window.content.document;
-		try {
-			updateFieldsText(script, recommendationIndex);
+	    updateFieldsText(script, scriptIndex);
 			
-		}catch(e){alert(e)}
-		
 		// finish making the script object ready to install
 		script.setDownloadedFile(filePicker.file);
         loadedScript = script;
         return;
         
-         // TODO shex, move this to part before actually running\installing
+         // TODO shex, move next code to part before actually running\installing
         
 		// install this script
 		config.install(script);
@@ -353,25 +341,29 @@ function loadNewScript() {
 	else {
 		alert("sorry, couldn't load script... try again please");
 	}
+  }catch(e){alert(e)}
+	
 }
 
 function handleApplyMix() {
-	var e = webshakesIFrame.contentWindow.document.getElementById('webshakesPreviewMix');
-	var mixURI = e.getAttribute('mixURI');
-    if (mixURI != "__webshakes_local_script") {
-        	WebShakes.previewMix(mixURI);
-     	
-        animationTargetSize = 180;// small dialog layout
-        webshakesIFrameFullHeight = false;
-
-    }
-    else {
-        WebShakes.previewGMScript(loadedScript);
-        animationTargetSize = 0;// small dialog layout
-        webshakesIFrameFullHeight = false;
-    }
-	
-	animateMinimizeWindow();
+     try {
+         var e = webshakesIFrame.contentWindow.document.getElementById('webshakesPreviewMix');
+         var mixURI = e.getAttribute('mixURI');
+         if (mixURI != "__webshakes_local_script") {
+             WebShakes.previewMix(mixURI);
+             
+             animationTargetSize = 180;// small dialog layout
+            webshakesIFrameFullHeight = false;
+            animateMinimizeWindow();
+            
+        }
+        else {
+            //alert("in handle apply mix, loadedScript._implements=" + loadedScript._implements);
+            WebShakes.previewGMScript(loadedScript);
+            webshakesIFrameFullHeight = false;
+            //        animationTargetSize = 0;// small dialog layout
+        }
+    }catch(e) { alert("error in handleApplyMix: " + e);  }
 }
 
 function handleToggleEnableMix() {
@@ -429,7 +421,7 @@ function webshakesIconClicked(aEvent) {
 // TODO shex, unite this code with search and manage
 function webshakes_showMenu() {
 	var viewedDocument = window.content.document;
-	var getURI = 'http://webshakes.net/menus/show';
+	var getURI = 'http://localhost:3001/menus/show';
 	var webShakesId = 'WebShakes.net'
 	try {
 		
@@ -452,11 +444,13 @@ function webshakes_showMenu() {
 			
 			animateOpenWindow();
             var doc = webshakesIFrame.contentWindow.document;
-			doc.addEventListener("webshakes-close-event", animateCloseWindow, false);
-			doc.addEventListener('webshakes-search-menu-clicked-event', webshakes_search, false);
-			doc.addEventListener('webshakes-manage-installed-menu-clicked-event', webshakes_manageInstalled, false);
+	        doc.addEventListener("webshakes-close-event", animateCloseWindow, false);
+	        doc.addEventListener('webshakes-search-menu-clicked-event', webshakes_search, false);
+            doc.addEventListener('webshakes-manage-installed-menu-clicked-event', webshakes_manageInstalled, false);
             doc.addEventListener('webshakes-add-new-script-event', webshakes_addScript, false);
             doc.addEventListener('webshakes-search-for-interfaces-event', webshakes_searchInterfaces, false);
+            doc.addEventListener('webshakes-search-for-implementations-event', webshakes_searchImplementations, false);
+            
 		}, false);
 	} 
 	catch (e) {
@@ -475,28 +469,44 @@ function webshakes_searchTerms() {
             
     	var params = '?filterByURI=' + encodeURIComponent(userURI)
           params = params + '&filterByTerms=' + encodeURIComponent(terms);
-    	var getURI = 'http://webshakes.net/scripts/' + params;
+    	var getURI = 'http://localhost:3001/scripts/' + params;
         
         // show the GUI 
         webshakes_addDialogToDisplayedPage(getURI, "preview");
 }
 
-function webshakes_searchInterfaces() {
-    alert("webshakes_searchInterfaces chosen");
+function webshakes_searchImplementations(){
+        webshakes_searchByType('implementation');
+}
+
+function webshakes_searchInterfaces(){
+        webshakes_searchByType('interface');
+}
+
+function webshakes_searchByType(type) {
+    
+    var userURI = window.content.document.location;
+            
+    	var params = '?filterByURI=' + encodeURIComponent(userURI)
+          params = params + '&filterByType=' + type;
+    	var getURI = 'http://localhost:3001/scripts/' + params;
+        
+    // show the GUI 
+    webshakes_addDialogToDisplayedPage(getURI, "preview");
 }
 
 function webshakes_addScript() {
-	var getURI = 'http://webshakes.net/scripts/new'
+	var getURI = 'http://localhost:3001/scripts/new'
 	webshakes_addDialogToDisplayedPage(getURI, "preview");
 }
 
 function webshakes_addInterface() {
-	var getURI = 'http://webshakes.net/scripts/new?type=interface'
+	var getURI = 'http://localhost:3001/scripts/new?type=interface'
 	webshakes_addDialogToDisplayedPage(getURI, "interface");
 }
 
 function webshakes_manageInstalled() {
-	var getURI = 'http://webshakes.net/opinions'
+	var getURI = 'http://localhost:3001/opinions'
 	webshakes_addDialogToDisplayedPage(getURI, "manage");
 }
 
@@ -504,7 +514,7 @@ function webshakes_search() {
     // build request URI
 	var userURI = window.content.document.location;
 	var params = '?filterByURI=' + encodeURIComponent(userURI)
-	var getURI = 'http://webshakes.net/scripts/' + params;
+	var getURI = 'http://localhost:3001/scripts/' + params;
     
     // create the GUI 
     webshakes_addDialogToDisplayedPage(getURI, "preview");

@@ -54,7 +54,7 @@ GM_Resources.prototype.getDep_ = function(name) {
     }
   }
 
-  throw new Error("No resource with name: " + name); // NOTE: Non localised string
+  throw new Error("No resource with name: " + name); // NOTE: Non localized string
 };
 
 function GM_ScriptLogger(script) {

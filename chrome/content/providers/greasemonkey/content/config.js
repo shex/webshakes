@@ -226,9 +226,21 @@ Config.prototype = {
             case "contributor":
             case "homepage":
             case "interface":
-            case "implements":
               script["_" + header] = value;
               break;
+
+            case "implements":            
+              script["_" + header] = value;
+              var interfaceURI = "http://localhost:3001/interface/" + value;
+              var reqUri = ioservice.newURI(interfaceURI, null, null); // TODO shex, revive second argument to: ioservice.newURI(interfaceURI, null, uri);
+              var scriptRequire = new ScriptRequire(script);
+              scriptRequire._downloadURL = reqUri.spec;
+              scriptRequire._interface = true;
+              scriptRequire._interfaceName =  value;
+              script._requires.push(scriptRequire);
+              //alert("added require 'interface' require for: " + interfaceURI);
+              break;
+              
             case "include":
               script._includes.push(value);
               break;
@@ -236,7 +248,6 @@ Config.prototype = {
               script._excludes.push(value);
               break;
             case "require":
-			alert("shex, note that there's a require to this script");
               var reqUri = ioservice.newURI(value, null, uri);
               var scriptRequire = new ScriptRequire(script);
               scriptRequire._downloadURL = reqUri.spec;
@@ -394,13 +405,13 @@ Config.prototype = {
    */
   _updateVersion: function() {
     log("> GM_updateVersion");
+	return; // TODO shex, check what's wrong with GM_GUID why extMan.getItemForID(GM_GUID) returns null
 
     // this is the last version which has been run at least once
     var initialized = GM_prefRoot.getValue("version", "0.0");
 
     if ("0.0" == initialized) {
       // this is the first launch.  show the welcome screen.
-		return; // TODO shex, do something here
       // find an open window.
       var windowManager = Components
            .classes['@mozilla.org/appshell/window-mediator;1']

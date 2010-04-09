@@ -367,12 +367,61 @@ GM_BrowserUI.applyScript = function(fileURI, timer) {
   this.scriptDownloader_.startPreviewScript(); // which after download and parsing calls GM_BrowserUI.previewScript
 };
 
+GM_BrowserUI.injectCode = function(name, namespace, source) {
+    //alert("wwwindow =? window: " + this.wwwindow == window);
+    //alert("injecting=\n" + source);
+    return this.gmSvc.applyScript(name, namespace, source,  {wrappedJSObject: this.tabBrowser.selectedBrowser.contentWindow }, window);
+}
+
+GM_BrowserUI.prepareForInjection = function(req){
+
+    if(!req._source) {
+        // this is a dependency that was just downloaded
+        req._source = getContents(req._tempFile);
+    }
+
+    if (req._interface) {
+            // we automatically check conformance
+            req.webshakesCommand = "WebShakes.interface:"; 
+    }
+    else if (req._implements) {
+            // alert("yey!!! it's require type is implementation ");
+            req.webshakesCommand = "WebShakes.implements<" + req._interfaceName + ">:";
+     }
+     else {
+            req.webshakesCommand = "";
+            if (req.prototype == ScriptRequire.prototype) {
+                alert("regular require");
+            }
+            else {
+                alert("Sorry, only require is supported for apply. resource will soon follow");
+            }
+     }
+}
+
 GM_BrowserUI.previewScript = function(script){
 	if (!this.gmSvc) {
 		this.gmSvc = Components.classes["@greasemonkey.mozdev.org/greasemonkey-service;1"].getService(Components.interfaces.gmIGreasemonkeyService);
 	}
-	// FIXME: TODO shex, you have to inject script's requires first
-	this.gmSvc.applyScript(script.name, script.namespace, script._source,  {wrappedJSObject: this.tabBrowser.selectedBrowser.contentWindow }, window);
+    
+    if (!this.config) {
+        this.config = GM_getConfig();
+    }
+    
+    var that = this;
+    // this.wwwindow = window; TODO shex remove
+    
+    script.requires.forEach(function(req){
+        that.prepareForInjection(req);
+        that.injectCode(req.webshakesCommand + script.name, script.namespace, req._source);
+    });
+    
+	//this.gmSvc.applyScript(script.name, script.namespace, script._source,  {wrappedJSObject: this.tabBrowser.selectedBrowser.contentWindow }, window);
+    this.prepareForInjection(script);
+    var conformanceResult = this.injectCode(script.webshakesCommand +script.name, script.namespace, script._source);
+    if (conformanceResult == "passed"){
+        WebShakes.allowInstall(script.name, script.namespace);
+    }
 };
 
 log("calling init...");

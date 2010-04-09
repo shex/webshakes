@@ -234,6 +234,7 @@ var greasemonkeyService = {
     var resources;
     var safeWin = new XPCNativeWrapper(unsafeContentWin);
     var safeDoc = safeWin.document;
+    var conforms = true;
 
     // detect and grab reference to firebug console and context, if it exists
     var firebugConsole = this.getFirebugConsole(unsafeContentWin, chromeWin);
@@ -276,6 +277,26 @@ var greasemonkeyService = {
                                                unsafeContentWin);
 
       sandbox.__proto__ = safeWin;
+      
+      if (script._interface) {
+          sandbox.WebShakes = {
+              export_interface: function(exported_interface){
+                  script.live_manifestation = {
+                      exported_interface: exported_interface
+                  };
+              },
+          };
+      }
+      if (script._implements) {
+          
+              sandbox.WebShakes = {
+                  export_implementation: function(exported_impl){
+                      script.live_manifestation = {
+                          exported_implementation: exported_impl
+                      };
+                  }
+              };
+      }
 
       var contents = script.textContent;
 
@@ -283,7 +304,6 @@ var greasemonkeyService = {
       var offsets = [];
       var offset = 0;
       script.requires.forEach(function(req){
-	  	alert("shex: found require");
         var contents = req.textContent;
         var lineCount = contents.split("\n").length;
         requires.push(contents);
@@ -303,6 +323,47 @@ var greasemonkeyService = {
       if (!this.evalInSandbox(scriptSrc, url, sandbox, script) && script.unwrap)
         this.evalInSandbox("(function(){"+ scriptSrc +"})()",
                            url, sandbox, script); // wrap anyway on early return
+                           
+                           
+       
+       // checking conformance of implementation
+       
+      if (script._interface) {
+          //alert("an interface was injected");
+          this.interfaceObj = script.live_manifestation.exported_interface; // TODO shex, this is plain ugly! 
+      }
+      else if (script._implements) {
+           //alert("an implements was injected, checking conformance");
+           implObj = script.live_manifestation.exported_implementation;
+           interfaceObj = this.interfaceObj;
+           
+           try {
+               
+               for (var member in interfaceObj) {
+                       //alert("checking member " + member);
+                       if (typeof interfaceObj[member] != "function" || typeof implObj[member] != "function" ) {
+                               alert("conformance failed! function " + member + " in impl is " +implObj[member]);
+                               conforms = false;
+                               break;
+                       }
+               }
+           }
+           catch(e) { alert("error in conformance: " + e )}
+       }
+       else { 
+           conforms = false;
+           // alert("no need to check anything");
+       }
+                                 
+      //alert("script.exported_interface=" + script.exported_interface.getTitle);
+      //alert("impl.getTitle=" + script.live_manifestation.exported_implementation.getTitle() );
+    }
+    
+    if (conforms) {
+            return "passed";
+    }
+    else {
+            return "failed"; 
     }
   },
 
@@ -502,12 +563,39 @@ var greasemonkeyService = {
 	var script  = new Script(GM_getConfig());
 	script.source_ = scriptCode;
 	script._namespace  = scriptNamespace;
-	script._name = scriptName;
+    
+    //  extract the special webshakes command  from script name (if exists) 
+    var regex = new RegExp("^WebShakes\.(.+?)(?:<(.+?)>)?:(.+)$");
+    var match = regex.exec(scriptName);
+    if (match) {
+                
+            var scriptType = match[1];
+            var interfaceName   = match[2];
+            var realName   = match[3];
+            script._name = realName; 
+            
+            switch (scriptType) {
+            case "interface":
+                  //alert("going to apply interface");
+                  script._interface = true;
+                  break;
+            case "implements":
+                  script._implements = true;
+                  script._interfaceName = interfaceName;
+                  //alert("going to apply implements. script._interfaceName="+script._interfaceName);
+                  //alert(interfaceName);
+                  break;
+            }
+    }
+    else {
+        //alert("applying regular script");
+        script._name = scriptName;
+    }
+    
 	script._source = scriptCode;
 	var scripts = {0:script};
-	this.injectScripts(scripts, href, unsafeWin, chromeWin);
+	return this.injectScripts(scripts, href, unsafeWin, chromeWin);
   },
-  
   
 };
 
