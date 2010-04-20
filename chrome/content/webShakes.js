@@ -75,6 +75,7 @@ var WebShakes = (function(){
 		},
 
         previewGMScript: function(script) {
+            
             if (script.requires && script.requires.length > 0) {
                     // need to load dependencies first
                    var ioservice = null; // Components.classes["@mozilla.org/network/io-service;1"].getService(Components.interfaces.nsIIOService);
@@ -205,7 +206,7 @@ function loadLocalScript(file) {
 
 		// create a script object with parsed metadata,
 		var config = GM_getConfig();
-		var script = config.parse(sourceCode, file);
+		var script = config.parse(sourceCode, file, window.content.document.location);
         // script._checkConformance = true; // causes conformance check after apply
         script._source = sourceCode;
 		return script;
@@ -265,7 +266,7 @@ function updateFieldsText(script, index) {
         updateFieldText(index, fieldId, newInclude);
         
         var fieldId = "extra_details_favicon_" + i
-        var imageHTML = '<img height="16" width="16" alt="Attach" src="/images/dialog/no_favicon.gif">';
+        var imageHTML = '<img height="16" width="16" alt="Attach" src="/images/dialog/no_favicon2.gif">';
         updateFieldText(index, fieldId, imageHTML);
     }
     
@@ -418,10 +419,12 @@ function webshakesIconClicked(aEvent) {
 	}
 }
 
+var webshakes_domain = 'localhost:3001';
+
 // TODO shex, unite this code with search and manage
 function webshakes_showMenu() {
 	var viewedDocument = window.content.document;
-	var getURI = 'http://localhost:3001/menus/show';
+	var getURI = 'http://' + webshakes_domain + '/menus/show';
 	var webShakesId = 'WebShakes.net'
 	try {
 		
@@ -443,10 +446,20 @@ function webshakes_showMenu() {
 		webshakesIFrame.addEventListener("load", function(aEvent){
 			
 			animateOpenWindow();
-            var doc = webshakesIFrame.contentWindow.document;
+            var doc = webshakesIFrame.contentWindow.document.body;
 	        doc.addEventListener("webshakes-close-event", animateCloseWindow, false);
+            
 	        doc.addEventListener('webshakes-search-menu-clicked-event', webshakes_search, false);
+            doc.addEventListener('webshakes-add-new-wish-menu-clicked-event', webshakes_addTodo, false);
+            doc.addEventListener('webshakes-wishlist-menu-clicked-event', webshakes_searchWishlist, false);
             doc.addEventListener('webshakes-manage-installed-menu-clicked-event', webshakes_manageInstalled, false);
+            
+            // advanced search
+            doc.addEventListener('webshakes-search-global-menu-clicked-event', webshakes_searchGlobal, false);
+            doc.addEventListener('webshakes-search-style-menu-clicked-event', webshakes_searchStyles, false);
+            doc.addEventListener('webshakes-search-fix-menu-clicked-event', webshakes_searchFix, false);
+            
+            // developers
             doc.addEventListener('webshakes-add-new-script-event', webshakes_addScript, false);
             doc.addEventListener('webshakes-search-for-interfaces-event', webshakes_searchInterfaces, false);
             doc.addEventListener('webshakes-search-for-implementations-event', webshakes_searchImplementations, false);
@@ -459,6 +472,7 @@ function webshakes_showMenu() {
 	
 }
 
+var modelSearchShown = ""; // TODO shex, this too should be per tab
 function webshakes_searchTerms() {
     var termsTextbox = webshakesIFrame.contentWindow.document.getElementById("search_text"); 
     if (termsTextbox) {
@@ -469,10 +483,21 @@ function webshakes_searchTerms() {
             
     	var params = '?filterByURI=' + encodeURIComponent(userURI)
           params = params + '&filterByTerms=' + encodeURIComponent(terms);
-    	var getURI = 'http://localhost:3001/scripts/' + params;
+    	var getURI = 'http://' + webshakes_domain + '/' + modelSearchShown + '/' + params;
+    
+    // show the GUI 
+    webshakes_addDialogToDisplayedPage(getURI, "preview");
+}
+
+function webshakes_searchWishlist() {
+    modelSearchShown = 'todos';
+    var userURI = window.content.document.location;
+            
+    	var params = '?filterByURI=' + encodeURIComponent(userURI)
+    	var getURI = 'http://' + webshakes_domain + '/' + modelSearchShown + '/' + params;
         
-        // show the GUI 
-        webshakes_addDialogToDisplayedPage(getURI, "preview");
+    // show the GUI 
+    webshakes_addDialogToDisplayedPage(getURI, "wishlist");
 }
 
 function webshakes_searchImplementations(){
@@ -484,37 +509,51 @@ function webshakes_searchInterfaces(){
 }
 
 function webshakes_searchByType(type) {
-    
+    webshakes_search('&filterByType=' + type);
+}
+
+function webshakes_addTodo() {
     var userURI = window.content.document.location;
-            
-    	var params = '?filterByURI=' + encodeURIComponent(userURI)
-          params = params + '&filterByType=' + type;
-    	var getURI = 'http://localhost:3001/scripts/' + params;
-        
-    // show the GUI 
-    webshakes_addDialogToDisplayedPage(getURI, "preview");
+	var params = '?appliedURI=' + encodeURIComponent(userURI)
+	var getURI = 'http://' + webshakes_domain + '/todos/new/' + params
+	webshakes_addDialogToDisplayedPage(getURI, "wishlist");
 }
 
 function webshakes_addScript() {
-	var getURI = 'http://localhost:3001/scripts/new'
+	var getURI = 'http://' + webshakes_domain + '/scripts/new'
 	webshakes_addDialogToDisplayedPage(getURI, "preview");
 }
 
 function webshakes_addInterface() {
-	var getURI = 'http://localhost:3001/scripts/new?type=interface'
+	var getURI = 'http://' + webshakes_domain + '/scripts/new?type=interface'
 	webshakes_addDialogToDisplayedPage(getURI, "interface");
 }
 
 function webshakes_manageInstalled() {
-	var getURI = 'http://localhost:3001/opinions'
+    modelSearchShown = 'opinions'
+	var getURI = 'http://' + webshakes_domain + '/' +modelSearchShown 
 	webshakes_addDialogToDisplayedPage(getURI, "manage");
 }
 
-function webshakes_search() {
+function webshakes_searchGlobal() {
+    webshakes_search("&filterByGlobal=true");
+}
+
+function webshakes_searchStyles() {
+    webshakes_searchByType('style');
+}
+
+function webshakes_searchFix() {
+    webshakes_search("&filterByTag=true");
+}
+
+function webshakes_search(moreParams) {
+    moreParams = moreParams || '';
+    modelSearchShown = 'scripts';
     // build request URI
 	var userURI = window.content.document.location;
 	var params = '?filterByURI=' + encodeURIComponent(userURI)
-	var getURI = 'http://localhost:3001/scripts/' + params;
+	var getURI = 'http://' + webshakes_domain + '/' + modelSearchShown +'/' + params + moreParams;
     
     // create the GUI 
     webshakes_addDialogToDisplayedPage(getURI, "preview");
@@ -562,9 +601,15 @@ function webshakes_addDialogToDisplayedPage(getURI, eventsToAdd) {
 				case "manage":
 				    webshakes_addEventListenersForManage();
 					break;
+                 case "wishlist":
+                     webshakes_addEventListenersForWishlist();
+                     break;
 			}
 			
 		}, false);
+        
+        //webshakesIFrame.addEventListener("unload", function(aEvent){ alert("unload in " + webshakesIFrame) }, false);
+            
 	} 
 	catch (e) {
 		alert(e);
@@ -575,12 +620,19 @@ function webshakes_addDialogToDisplayedPage(getURI, eventsToAdd) {
 	//      any events from pages not from your server.	
 }
 
+function webshakes_addEventListenersForWishlist(){
+    var doc = webshakesIFrame.contentWindow.document.body;
+       	doc.addEventListener("webshakes-close-event", animateCloseWindow, false, true);
+        doc.addEventListener('webshakes-filter-by-terms-event', webshakes_searchTerms, false);
+}
+
 function webshakes_addEventListenersForManage() {
     var doc = webshakesIFrame.contentWindow.document.body;
     
     	doc.addEventListener("webshakes-close-event", animateCloseWindow, false, true);
     	doc.addEventListener("webshakes-uninstall-mix-event", handleUninstallMix, false, true);
     	doc.addEventListener("webshakes-toggle-enable-mix-event", handleToggleEnableMix, false, true);
+    doc.addEventListener('webshakes-filter-by-terms-event', webshakes_searchTerms, false);
 }
 
 function webshakes_addEventListenersForSearch() {
@@ -590,4 +642,10 @@ function webshakes_addEventListenersForSearch() {
 	doc.addEventListener("webshakes-apply-mix-event", handleApplyMix, false, true);
 	doc.addEventListener("webshakesLoadLocalMixEvent", loadNewScript, false, true);
     doc.addEventListener('webshakes-filter-by-terms-event', webshakes_searchTerms, false);
+    
+    // advanced search
+    doc.addEventListener('webshakes-search-global-menu-clicked-event', webshakes_searchGlobal, false);
+    doc.addEventListener('webshakes-search-style-menu-clicked-event', webshakes_searchStyles, false);
+    doc.addEventListener('webshakes-search-fix-menu-clicked-event', webshakes_searchFix, false);
+            
 }

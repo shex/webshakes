@@ -27,6 +27,12 @@ const maxJSVersion = (function getMaxJSVersion() {
   return "1.6";
 })();
 
+const WEBSHAKES_APPLY_SESSION_STARTED = "WEBSHAKES_APPLY_SESSION_STARTED";
+const WEBSHAKES_APPLY_SESSION_ENDED = "WEBSHAKES_APPLY_SESSION_ENDED";
+const WEBSHAKES_APPLY_SESSION_DOES_NOT_EXIST = "WEBSHAKES_APPLY_SESSION_DOES_NOT_EXIST";
+const WEBSHAKES_APPLY_SESSION_ALREADY_EXISTS = "WEBSHAKES_APPLY_SESSION_ALREADY_EXISTS";
+
+
 function alert(msg) {
   Cc["@mozilla.org/embedcomp/prompt-service;1"]
     .getService(Ci.nsIPromptService)
@@ -284,19 +290,36 @@ var greasemonkeyService = {
                   script.live_manifestation = {
                       exported_interface: exported_interface
                   };
+                  // TODO shex, support multiple interfaces by adding their names in GM_BrowserUI.prepareForInjection
+                  // WebShakes.interface<" + req._interface + ">:"
+                  WebShakesSessions[script._name].exported_interface = exported_interface; 
               },
           };
       }
       if (script._implements) {
-          
+              // allow the implementation to export objects
               sandbox.WebShakes = {
                   export_implementation: function(exported_impl){
                       script.live_manifestation = {
                           exported_implementation: exported_impl
                       };
+                      
+                      alert("implementation applied for script " + script._name + " which exported an object named " + script._interfaceName);
+                      alert("implements's scriptname-" + script._name + "-");
+                      WebShakesSessions[script._name].exported_implementations[script._interfaceName] = exported_impl;
                   }
               };
       }
+
+      if (script._applies) {
+               // script uses implementations
+               alert("scriptname-" + script._name + "-");
+               alert("going to run root script, applies.length = " + WebShakesSessions[script._name].exported_implementations.length);
+               for (var manifestationName in WebShakesSessions[script._name].exported_implementations) {
+                     alert("adding export object as " + manifestationName);
+                     sandbox[manifestationName] = WebShakesSessions[script._name].exported_implementations[manifestationName];
+                }
+       }
 
       var contents = script.textContent;
 
@@ -330,12 +353,13 @@ var greasemonkeyService = {
        
       if (script._interface) {
           //alert("an interface was injected");
-          this.interfaceObj = script.live_manifestation.exported_interface; // TODO shex, this is plain ugly! 
+          WebShakesSessions[script._name].interfaceObj = script.live_manifestation.exported_interface;
       }
       else if (script._implements) {
-           //alert("an implements was injected, checking conformance");
+           alert("an implements was injected, checking conformance");
            implObj = script.live_manifestation.exported_implementation;
-           interfaceObj = this.interfaceObj;
+           interfaceObj = WebShakesSessions[script._name].interfaceObj;
+           alert("shex, if this is true, you can delete redundant code: " + WebShakesSessions[script._name].exported_interface == interfaceObj);
            
            try {
                
@@ -571,19 +595,49 @@ var greasemonkeyService = {
                 
             var scriptType = match[1];
             var interfaceName   = match[2];
-            var realName   = match[3];
-            script._name = realName; 
+            var scriptName   = match[3];
+            script._name = scriptName; 
             
             switch (scriptType) {
             case "interface":
                   //alert("going to apply interface");
                   script._interface = true;
                   break;
+                  
             case "implements":
+                  alert("going to apply implements. script._interfaceName="+interfaceName);
                   script._implements = true;
                   script._interfaceName = interfaceName;
-                  //alert("going to apply implements. script._interfaceName="+script._interfaceName);
                   //alert(interfaceName);
+                  break;
+            
+            case "root":
+                  alert("going to apply root script");
+                  script._applies = true;
+                  break;
+                  
+             case "startPreview":
+                  if ( WebShakesSessions[scriptName] ){
+                      return WEBSHAKES_APPLY_SESSION_ALREADY_EXISTS
+                  }
+                  else {
+                      var newState = WEBSHAKES_APPLY_SESSION_STARTED;
+                      WebShakesSessions[scriptName] = {};
+                      WebShakesSessions[scriptName].state = newState;
+                      WebShakesSessions[script._name].exported_implementations = {};
+                      return newState;
+                  }    
+                    
+                  break;
+                  
+             case "endPreview":
+                 if (WebShakesSessions[scriptName].state == WEBSHAKES_APPLY_SESSION_STARTED){
+                      WebShakesSessions[scriptName] = null;
+                      return WEBSHAKES_APPLY_SESSION_ENDED;
+                  }
+                  else {
+                     return WEBSHAKES_APPLY_SESSION_DOES_NOT_EXIST 
+                  }
                   break;
             }
     }
@@ -601,6 +655,7 @@ var greasemonkeyService = {
 
 greasemonkeyService.wrappedJSObject = greasemonkeyService;
 
+var WebShakesSessions = new Object();
 
 
 /**

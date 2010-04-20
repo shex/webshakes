@@ -178,13 +178,14 @@ Config.prototype = {
     configStream.close();
   },
 
-  parse: function(source, uri) {
+  parse: function(source, uri, displayedURI) {
     var ioservice = Components.classes["@mozilla.org/network/io-service;1"]
                               .getService(Components.interfaces.nsIIOService);
 
     var script = new Script(this);
     script._downloadURL = uri.spec;
     script._enabled = true;
+    script._version = "1.0.0";
 
     // read one line at a time looking for start meta delimiter or EOF
     var lines = source.match(/.+/g);
@@ -238,7 +239,30 @@ Config.prototype = {
               scriptRequire._interface = true;
               scriptRequire._interfaceName =  value;
               script._requires.push(scriptRequire);
-              //alert("added require 'interface' require for: " + interfaceURI);
+              break;
+              
+            case "applies":
+              // @appies on Book (myBook)
+              var interfaceMatch = value.match(/^(on(\s+))?(.+)(\s+)\((.+)\)$/);
+              if (interfaceMatch === null) continue;
+              
+              var interfaceName = interfaceMatch[3];
+              var interfaceManifestationName = interfaceMatch[5];
+             
+              if (!script._applies) {
+                   script._applies = [];   
+              }
+              script._applies.push(interfaceManifestationName);
+              
+              var implementationURI = "http://localhost:3001/implementation/" + interfaceName + "?filterByURI=" + encodeURIComponent(displayedURI);
+              
+              var reqUri = ioservice.newURI(implementationURI, null, null); // TODO shex, revive second argument to: ioservice.newURI(interfaceURI, null, uri);
+              var scriptRequire = new ScriptRequire(script);
+              scriptRequire._downloadURL = reqUri.spec;
+              scriptRequire._implements = true;
+              scriptRequire._implementedInterfaceName = interfaceName;
+              scriptRequire._interfaceManifestationName = interfaceManifestationName;
+              script._requires.push(scriptRequire);
               break;
               
             case "include":

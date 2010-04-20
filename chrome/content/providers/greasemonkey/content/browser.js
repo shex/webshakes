@@ -367,35 +367,41 @@ GM_BrowserUI.applyScript = function(fileURI, timer) {
   this.scriptDownloader_.startPreviewScript(); // which after download and parsing calls GM_BrowserUI.previewScript
 };
 
+GM_BrowserUI.sendWebShakesCommand = function(command) {
+   //alert("command=\n" + command);
+   return this.gmSvc.applyScript(command, null, null,  {wrappedJSObject: this.tabBrowser.selectedBrowser.contentWindow }, window);
+}
+
 GM_BrowserUI.injectCode = function(name, namespace, source) {
-    //alert("wwwindow =? window: " + this.wwwindow == window);
     //alert("injecting=\n" + source);
     return this.gmSvc.applyScript(name, namespace, source,  {wrappedJSObject: this.tabBrowser.selectedBrowser.contentWindow }, window);
 }
 
-GM_BrowserUI.prepareForInjection = function(req){
+GM_BrowserUI.prepareForInjection = function(script1){
 
-    if(!req._source) {
+    if(!script1._source) {
         // this is a dependency that was just downloaded
-        req._source = getContents(req._tempFile);
+        script1._source = getContents(script1._tempFile);
     }
 
-    if (req._interface) {
+    if (script1._interface) {
             // we automatically check conformance
-            req.webshakesCommand = "WebShakes.interface:"; 
+            script1.webshakesCommand = "WebShakes.interface:"; 
     }
-    else if (req._implements) {
-            // alert("yey!!! it's require type is implementation ");
-            req.webshakesCommand = "WebShakes.implements<" + req._interfaceName + ">:";
+    else if (script1._implements) {
+            alert("yey!!! it's require type is implementation, the _interfaceManifestationName is " + script1._interfaceManifestationName);
+            script1.webshakesCommand = "WebShakes.implements<" + script1._interfaceManifestationName + ">:";
+     }
+     else if (script1._applies) {
+         // script uses @applies
+         script1.webshakesCommand = "WebShakes.root:";
      }
      else {
-            req.webshakesCommand = "";
-            if (req.prototype == ScriptRequire.prototype) {
-                alert("regular require");
+            script1.webshakesCommand = "";
+            if (script1.prototype == ScriptResource.prototype) {
+                alert("Sorry, only @require is supported for apply commands.\nHopefully, @resource will soon follow");
             }
-            else {
-                alert("Sorry, only require is supported for apply. resource will soon follow");
-            }
+            // else is ScriptRequire or regular script
      }
 }
 
@@ -407,9 +413,13 @@ GM_BrowserUI.previewScript = function(script){
     if (!this.config) {
         this.config = GM_getConfig();
     }
+
+    var res = this.sendWebShakesCommand("WebShakes.startPreview:" + script.name);
+    if (res != "WEBSHAKES_APPLY_SESSION_STARTED") {
+        alert("Warning, you're applying a new script while the previous didn't finish, msg:"+res);
+    }
     
     var that = this;
-    // this.wwwindow = window; TODO shex remove
     
     script.requires.forEach(function(req){
         that.prepareForInjection(req);
@@ -422,6 +432,9 @@ GM_BrowserUI.previewScript = function(script){
     if (conformanceResult == "passed"){
         WebShakes.allowInstall(script.name, script.namespace);
     }
+    
+    res = this.sendWebShakesCommand("WebShakes.endPreview:" + script.name);
+    if (res != "WEBSHAKES_APPLY_SESSION_ENDED") alert("something went wrong, res=" + res); 
 };
 
 log("calling init...");

@@ -85,6 +85,12 @@ ScriptDownloader.prototype.handleScriptDownloadComplete = function() {
     if(this.installing_){
 		this.startScriptInstall();
     }else{ 
+        if (this.script.prototype == ScriptResource.prototype) {
+                //alert("something is wirded");
+                
+            }else {
+                //alert("still no idea");
+            }
 		this.startScriptPreview();
     }
   } catch (e) {
